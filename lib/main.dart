@@ -4,6 +4,7 @@ import 'providers/app_state.dart';
 import 'screens/onboarding/onboarding_flow.dart';
 import 'screens/main_navigation.dart';
 import 'screens/add_habit_screen.dart';
+import 'screens/auth/login_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -47,6 +48,9 @@ class AppRouter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppState>(
       builder: (context, appState, child) {
+        if (!appState.isLoggedIn) {
+          return const LoginScreen();
+        }
         if (appState.isOnboarded) {
           return const MainNavigation();
         } else {

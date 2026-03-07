@@ -12,9 +12,10 @@ class ProfileStep extends StatefulWidget {
 class _ProfileStepState extends State<ProfileStep> {
   final _formKey = GlobalKey<FormState>();
   String _selectedAgeRange = '18-24';
-  String _selectedLifestyle = 'Student';
+  List<String> _selectedLifestyles = [];
   String _profession = '';
   String _industry = '';
+  String _degree = '';
 
   @override
   Widget build(BuildContext context) {
@@ -66,9 +67,17 @@ class _ProfileStepState extends State<ProfileStep> {
               onChanged: (value) => _industry = value,
             ),
             const SizedBox(height: 20),
-            _buildDropdown(
+            TextFormField(
+              decoration: const InputDecoration(
+                labelText: 'Degree (Optional)',
+                border: OutlineInputBorder(),
+                hintText: 'e.g., Bachelor\'s in Computer Science',
+              ),
+              onChanged: (value) => _degree = value,
+            ),
+            const SizedBox(height: 20),
+            _buildMultiSelectChips(
               'Lifestyle Type',
-              _selectedLifestyle,
               [
                 'Student',
                 'Working Professional',
@@ -77,7 +86,6 @@ class _ProfileStepState extends State<ProfileStep> {
                 'Freelancer',
                 'Entrepreneur',
               ],
-              (value) => setState(() => _selectedLifestyle = value!),
             ),
             const SizedBox(height: 40),
             Row(
@@ -105,7 +113,8 @@ class _ProfileStepState extends State<ProfileStep> {
                       profile.ageRange = _selectedAgeRange;
                       profile.profession = _profession;
                       profile.industry = _industry;
-                      profile.lifestyleType = _selectedLifestyle;
+                      profile.degree = _degree;
+                      profile.lifestyleTypes = List.from(_selectedLifestyles);
                       appState.updateUserProfile(profile);
                       appState.nextOnboardingStep();
                     },
@@ -135,7 +144,7 @@ class _ProfileStepState extends State<ProfileStep> {
     void Function(String?) onChanged,
   ) {
     return DropdownButtonFormField<String>(
-      initialValue: value,
+      value: value,
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
@@ -144,6 +153,54 @@ class _ProfileStepState extends State<ProfileStep> {
         return DropdownMenuItem(value: item, child: Text(item));
       }).toList(),
       onChanged: onChanged,
+    );
+  }
+
+  Widget _buildMultiSelectChips(String label, List<String> options) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options.map((option) {
+            final isSelected = _selectedLifestyles.contains(option);
+            return FilterChip(
+              label: Text(option),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _selectedLifestyles.add(option);
+                  } else {
+                    _selectedLifestyles.remove(option);
+                  }
+                });
+              },
+              selectedColor: const Color(0xFF6366F1).withOpacity(0.2),
+              checkmarkColor: const Color(0xFF6366F1),
+              labelStyle: TextStyle(
+                color: isSelected ? const Color(0xFF6366F1) : Colors.black87,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color:
+                      isSelected ? const Color(0xFF6366F1) : Colors.grey[400]!,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

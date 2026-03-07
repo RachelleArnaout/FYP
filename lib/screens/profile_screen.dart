@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -29,7 +30,11 @@ class ProfileScreen extends StatelessWidget {
                 [
                   _buildInfoRow('Age Range', profile.ageRange),
                   _buildInfoRow('Profession', profile.profession),
-                  _buildInfoRow('Lifestyle', profile.lifestyleType),
+                  if (profile.industry.isNotEmpty)
+                    _buildInfoRow('Industry', profile.industry),
+                  if (profile.degree.isNotEmpty)
+                    _buildInfoRow('Degree', profile.degree),
+                  _buildInfoRow('Lifestyle', profile.lifestyleTypes.join(', ')),
                 ],
               ),
               const SizedBox(height: 24),
@@ -98,11 +103,59 @@ class ProfileScreen extends StatelessWidget {
                 height: 48,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    // TODO: Navigate to edit profile
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const EditProfileScreen(),
+                      ),
+                    );
                   },
                   icon: const Icon(Icons.edit),
                   label: const Text('Edit Profile'),
                   style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Log Out'),
+                        content: const Text(
+                            'Are you sure you want to log out?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              context.read<AppState>().logout();
+                            },
+                            child: const Text(
+                              'Log Out',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.logout, color: Colors.red),
+                  label: const Text(
+                    'Log Out',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

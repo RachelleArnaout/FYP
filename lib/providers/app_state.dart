@@ -11,6 +11,9 @@ class AppState extends ChangeNotifier {
   List<Habit> _habits = [];
   bool _isOnboarded = false;
   int _currentOnboardingStep = 0;
+  bool _isLoggedIn = false;
+  String _userEmail = '';
+  String _userName = '';
 
   UserProfile get userProfile => _userProfile;
   List<LifeArea> get lifeAreas => _lifeAreas;
@@ -21,6 +24,9 @@ class AppState extends ChangeNotifier {
       _habits.where((habit) => habit.isActive).toList();
   bool get isOnboarded => _isOnboarded;
   int get currentOnboardingStep => _currentOnboardingStep;
+  bool get isLoggedIn => _isLoggedIn;
+  String get userEmail => _userEmail;
+  String get userName => _userName;
 
   AppState() {
     _loadData();
@@ -28,9 +34,12 @@ class AppState extends ChangeNotifier {
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
+    _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    _userEmail = prefs.getString('userEmail') ?? '';
+    _userName = prefs.getString('userName') ?? '';
     _isOnboarded = prefs.getBool('isOnboarded') ?? false;
 
-    if (_isOnboarded) {
+    if (_isOnboarded && _isLoggedIn) {
       final profileJson = prefs.getString('userProfile');
       if (profileJson != null) {
         _userProfile = UserProfile.fromJson(json.decode(profileJson));
@@ -54,12 +63,79 @@ class AppState extends ChangeNotifier {
 
   Future<void> _saveData() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', _isLoggedIn);
+    await prefs.setString('userEmail', _userEmail);
+    await prefs.setString('userName', _userName);
     await prefs.setString('userProfile', json.encode(_userProfile.toJson()));
     await prefs.setString(
         'lifeAreas', json.encode(_lifeAreas.map((a) => a.toJson()).toList()));
     await prefs.setString(
         'habits', json.encode(_habits.map((h) => h.toJson()).toList()));
     await prefs.setBool('isOnboarded', _isOnboarded);
+  }
+
+  // Auth methods
+  Future<bool> signup(String name, String email, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    final existingEmail = prefs.getString('registered_email');
+    if (existingEmail != null && existingEmail == email) {
+      return false; // Account already exists
+    }
+
+    await prefs.setString('registered_email', email);
+    await prefs.setString('registered_password', password);
+    await prefs.setString('registered_name', name);
+
+    _isLoggedIn = true;
+    _userEmail = email;
+    _userName = name;
+    _saveData();
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> login(String email, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    final registeredEmail = prefs.getString('registered_email');
+    final registeredPassword = prefs.getString('registered_password');
+
+    if (registeredEmail == email && registeredPassword == password) {
+      _isLoggedIn = true;
+      _userEmail = email;
+      _userName = prefs.getString('registered_name') ?? '';
+      _isOnboarded = prefs.getBool('isOnboarded') ?? false;
+
+      if (_isOnboarded) {
+        final profileJson = prefs.getString('userProfile');
+        if (profileJson != null) {
+          _userProfile = UserProfile.fromJson(json.decode(profileJson));
+        }
+        final areasJson = prefs.getString('lifeAreas');
+        if (areasJson != null) {
+          final List<dynamic> areasList = json.decode(areasJson);
+          _lifeAreas =
+              areasList.map((area) => LifeArea.fromJson(area)).toList();
+        }
+        final habitsJson = prefs.getString('habits');
+        if (habitsJson != null) {
+          final List<dynamic> habitsList = json.decode(habitsJson);
+          _habits =
+              habitsList.map((habit) => Habit.fromJson(habit)).toList();
+        }
+      }
+
+      _saveData();
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> logout() async {
+    _isLoggedIn = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', false);
+    notifyListeners();
   }
 
   void updateUserProfile(UserProfile profile) {

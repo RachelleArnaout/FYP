@@ -2,7 +2,8 @@ class UserProfile {
   String ageRange;
   String profession;
   String industry;
-  String lifestyleType;
+  String degree;
+  List<String> lifestyleTypes;
   String livingSituation;
   String energyPattern;
   int dailyFreeTime; // in minutes
@@ -22,7 +23,8 @@ class UserProfile {
     this.ageRange = '',
     this.profession = '',
     this.industry = '',
-    this.lifestyleType = '',
+    this.degree = '',
+    this.lifestyleTypes = const [],
     this.livingSituation = '',
     this.energyPattern = 'morning',
     this.dailyFreeTime = 60,
@@ -44,7 +46,8 @@ class UserProfile {
       'ageRange': ageRange,
       'profession': profession,
       'industry': industry,
-      'lifestyleType': lifestyleType,
+      'degree': degree,
+      'lifestyleTypes': lifestyleTypes,
       'livingSituation': livingSituation,
       'energyPattern': energyPattern,
       'dailyFreeTime': dailyFreeTime,
@@ -67,7 +70,8 @@ class UserProfile {
       ageRange: json['ageRange'] ?? '',
       profession: json['profession'] ?? '',
       industry: json['industry'] ?? '',
-      lifestyleType: json['lifestyleType'] ?? '',
+      degree: json['degree'] ?? '',
+      lifestyleTypes: List<String>.from(json['lifestyleTypes'] ?? []),
       livingSituation: json['livingSituation'] ?? '',
       energyPattern: json['energyPattern'] ?? 'morning',
       dailyFreeTime: json['dailyFreeTime'] ?? 60,
