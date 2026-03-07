@@ -165,14 +165,16 @@ class _ValuesStepState extends State<ValuesStep> {
                 child: ElevatedButton(
                   onPressed: _selectedValues.isEmpty
                       ? null
-                      : () {
+                      : () async {
                           final appState = context.read<AppState>();
                           final profile = appState.userProfile;
                           profile.topValues = List.from(_selectedValues);
                           profile.identityStatements =
                               List.from(_identityStatements);
-                          appState.updateUserProfile(profile);
-                          appState.nextOnboardingStep();
+                          await appState.updateUserProfile(profile);
+                          if (context.mounted) {
+                            appState.nextOnboardingStep();
+                          }
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF6366F1),

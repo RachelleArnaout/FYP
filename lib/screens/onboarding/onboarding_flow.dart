@@ -7,8 +7,30 @@ import 'life_areas_step.dart';
 import 'values_step.dart';
 import 'energy_step.dart';
 
-class OnboardingFlow extends StatelessWidget {
+class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({super.key});
+
+  @override
+  State<OnboardingFlow> createState() => _OnboardingFlowState();
+}
+
+class _OnboardingFlowState extends State<OnboardingFlow> {
+  bool _lifeAreasCreated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureLifeAreasExist();
+  }
+
+  Future<void> _ensureLifeAreasExist() async {
+    if (_lifeAreasCreated) return;
+    final appState = context.read<AppState>();
+    if (appState.lifeAreas.isEmpty) {
+      await appState.createDefaultLifeAreas();
+    }
+    _lifeAreasCreated = true;
+  }
 
   @override
   Widget build(BuildContext context) {

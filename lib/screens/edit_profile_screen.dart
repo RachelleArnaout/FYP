@@ -69,7 +69,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  void _save() {
+  bool _isSaving = false;
+
+  Future<void> _save() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+
     final appState = context.read<AppState>();
     final profile = appState.userProfile;
     profile.ageRange = _ageRange;
@@ -82,8 +87,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     profile.energyPattern = _energyPattern;
     profile.dailyFreeTime = _dailyFreeTime.round();
     profile.stressBaseline = _stressLevel;
-    appState.updateUserProfile(profile);
-    Navigator.of(context).pop();
+    await appState.updateUserProfile(profile);
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override

@@ -21,6 +21,8 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
   int _durationMinutes = 15;
   String _difficulty = 'easy';
 
+  bool _isSubmitting = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -202,32 +204,49 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          final habit = Habit(
-                            id: DateTime.now()
-                                .millisecondsSinceEpoch
-                                .toString(),
-                            name: _nameController.text,
-                            description: _descriptionController.text,
-                            lifeAreaId: _selectedLifeAreaId!,
-                            goalStatement: _goalController.text,
-                            valueAlignment: _selectedValue ?? '',
-                            durationMinutes: _durationMinutes,
-                            difficultyLevel: _difficulty,
-                          );
+                      onPressed: _isSubmitting
+                          ? null
+                          : () async {
+                              if (_formKey.currentState!.validate()) {
+                                setState(() => _isSubmitting = true);
 
-                          appState.addHabit(habit);
-                          Navigator.pop(context);
+                                final habit = Habit(
+                                  id: '', // Will be assigned by the backend
+                                  name: _nameController.text,
+                                  description: _descriptionController.text,
+                                  lifeAreaId: _selectedLifeAreaId!,
+                                  goalStatement: _goalController.text,
+                                  valueAlignment: _selectedValue ?? '',
+                                  durationMinutes: _durationMinutes,
+                                  difficultyLevel: _difficulty,
+                                );
 
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Habit added successfully!'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        }
-                      },
+                                try {
+                                  await appState.addHabit(habit);
+                                  if (context.mounted) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content:
+                                            Text('Habit added successfully!'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    setState(() => _isSubmitting = false);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            'Failed to add habit: ${e.toString()}'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                }
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF6366F1),
                         foregroundColor: Colors.white,

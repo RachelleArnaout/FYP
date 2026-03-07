@@ -190,8 +190,9 @@ class HomeScreen extends StatelessWidget {
         else
           ...habits.map((habit) {
             final isCompleted = habit.isCompletedOn(today);
-            final lifeArea = appState.lifeAreas.firstWhere(
+            final lifeArea = appState.lifeAreas.cast<dynamic>().firstWhere(
               (area) => area.id == habit.lifeAreaId,
+              orElse: () => null,
             );
 
             return Card(
@@ -213,9 +214,9 @@ class HomeScreen extends StatelessWidget {
                 ),
                 subtitle: Row(
                   children: [
-                    Text(lifeArea.icon),
+                    Text(lifeArea?.icon ?? '📌'),
                     const SizedBox(width: 4),
-                    Text(lifeArea.name),
+                    Text(lifeArea?.name ?? 'Unknown'),
                     const SizedBox(width: 8),
                     Text('• ${habit.durationMinutes} min'),
                   ],

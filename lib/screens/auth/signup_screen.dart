@@ -50,7 +50,7 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() {
       _isLoading = false;
       if (!result) {
-        _errorMessage = 'An account with this email already exists';
+        _errorMessage = appState.error ?? 'An account with this email already exists';
       }
     });
   }

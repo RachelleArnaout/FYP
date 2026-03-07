@@ -44,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _isLoading = false;
       if (!success) {
-        _errorMessage = 'Invalid email or password';
+        _errorMessage = appState.error ?? 'Invalid email or password';
       }
     });
   }

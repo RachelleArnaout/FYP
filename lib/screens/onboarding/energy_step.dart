@@ -142,14 +142,16 @@ class _EnergyStepState extends State<EnergyStep> {
               const SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     final appState = context.read<AppState>();
                     final profile = appState.userProfile;
                     profile.energyPattern = _energyPattern;
                     profile.dailyFreeTime = _dailyFreeTime.round();
                     profile.stressBaseline = _stressLevel;
-                    appState.updateUserProfile(profile);
-                    appState.completeOnboarding();
+                    await appState.updateUserProfile(profile);
+                    if (context.mounted) {
+                      await appState.completeOnboarding();
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF6366F1),

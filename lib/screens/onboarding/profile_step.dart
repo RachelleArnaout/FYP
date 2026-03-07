@@ -107,7 +107,7 @@ class _ProfileStepState extends State<ProfileStep> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       final appState = context.read<AppState>();
                       final profile = appState.userProfile;
                       profile.ageRange = _selectedAgeRange;
@@ -115,8 +115,10 @@ class _ProfileStepState extends State<ProfileStep> {
                       profile.industry = _industry;
                       profile.degree = _degree;
                       profile.lifestyleTypes = List.from(_selectedLifestyles);
-                      appState.updateUserProfile(profile);
-                      appState.nextOnboardingStep();
+                      await appState.updateUserProfile(profile);
+                      if (context.mounted) {
+                        appState.nextOnboardingStep();
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6366F1),

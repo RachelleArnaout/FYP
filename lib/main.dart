@@ -7,6 +7,7 @@ import 'screens/add_habit_screen.dart';
 import 'screens/auth/login_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -48,6 +49,28 @@ class AppRouter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppState>(
       builder: (context, appState, child) {
+        // Show loading screen while initializing
+        if (!appState.isInitialized) {
+          return const Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.auto_awesome,
+                    size: 64,
+                    color: Color(0xFF6366F1),
+                  ),
+                  SizedBox(height: 24),
+                  CircularProgressIndicator(
+                    color: Color(0xFF6366F1),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
         if (!appState.isLoggedIn) {
           return const LoginScreen();
         }
