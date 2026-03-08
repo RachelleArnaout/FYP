@@ -96,12 +96,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.error_outline, color: Colors.red[700], size: 20),
+                          Icon(Icons.error_outline,
+                              color: Colors.red[700], size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _errorMessage!,
-                              style: TextStyle(color: Colors.red[700], fontSize: 14),
+                              style: TextStyle(
+                                  color: Colors.red[700], fontSize: 14),
                             ),
                           ),
                         ],
@@ -125,7 +127,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (value == null || value.trim().isEmpty) {
                         return 'Please enter your email';
                       }
-                      if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value.trim())) {
+                      if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
+                          .hasMatch(value.trim())) {
                         return 'Please enter a valid email';
                       }
                       return null;

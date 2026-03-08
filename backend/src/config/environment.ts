@@ -9,4 +9,6 @@ export const environment = {
   jwtSecret: process.env.JWT_SECRET || "fallback-secret-key",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   nodeEnv: process.env.NODE_ENV || "development",
+  openaiApiKey: process.env.OPENAI_API_KEY || "",
+  llmModel: process.env.LLM_MODEL || "gpt-5-nano",
 } as const;

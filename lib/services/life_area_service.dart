@@ -6,14 +6,18 @@ class LifeAreaService {
   static Future<List<LifeArea>> getAll() async {
     final response = await ApiClient.get('/life-areas');
     final data = response['data'] as List<dynamic>;
-    return data.map((e) => LifeArea.fromJson(e as Map<String, dynamic>)).toList();
+    return data
+        .map((e) => LifeArea.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// Get only active life areas.
   static Future<List<LifeArea>> getActive() async {
     final response = await ApiClient.get('/life-areas/active');
     final data = response['data'] as List<dynamic>;
-    return data.map((e) => LifeArea.fromJson(e as Map<String, dynamic>)).toList();
+    return data
+        .map((e) => LifeArea.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// Get a single life area by ID.

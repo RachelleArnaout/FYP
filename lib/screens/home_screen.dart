@@ -148,12 +148,27 @@ class HomeScreen extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            TextButton.icon(
-              onPressed: () {
-                Navigator.pushNamed(context, '/add-habit');
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('Add'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/ai-habits');
+                  },
+                  icon: const Icon(Icons.auto_awesome, size: 18),
+                  label: const Text('AI'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF8B5CF6),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/add-habit');
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add'),
+                ),
+              ],
             ),
           ],
         ),
@@ -184,6 +199,18 @@ class HomeScreen extends StatelessWidget {
                     foregroundColor: Colors.white,
                   ),
                 ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/ai-habits');
+                  },
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('Generate with AI'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF8B5CF6),
+                    side: const BorderSide(color: Color(0xFF8B5CF6)),
+                  ),
+                ),
               ],
             ),
           )
@@ -191,9 +218,9 @@ class HomeScreen extends StatelessWidget {
           ...habits.map((habit) {
             final isCompleted = habit.isCompletedOn(today);
             final lifeArea = appState.lifeAreas.cast<dynamic>().firstWhere(
-              (area) => area.id == habit.lifeAreaId,
-              orElse: () => null,
-            );
+                  (area) => area.id == habit.lifeAreaId,
+                  orElse: () => null,
+                );
 
             return Card(
               margin: const EdgeInsets.only(bottom: 12),

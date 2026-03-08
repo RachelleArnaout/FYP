@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { body, query } from "express-validator";
 import { HabitController } from "../controllers/habit.controller";
+import { AIHabitController } from "../controllers/ai.controller";
 import { authenticate } from "../middleware/auth";
 import { validateRequest } from "../middleware/validate";
 
@@ -21,6 +22,54 @@ router.get(
   ],
   validateRequest,
   HabitController.getAnalytics,
+);
+
+// ─── AI Habit Generation ─────────────────────────────────────────────────────
+
+router.post(
+  "/ai/generate",
+  [
+    body("focusAreas")
+      .optional()
+      .isArray()
+      .withMessage("Focus areas must be an array"),
+    body("count")
+      .optional()
+      .isInt({ min: 1, max: 10 })
+      .withMessage("Count must be between 1 and 10"),
+  ],
+  validateRequest,
+  AIHabitController.generate,
+);
+
+router.post(
+  "/ai/approve",
+  [
+    body("habits")
+      .isArray({ min: 1, max: 10 })
+      .withMessage("Provide 1-10 habits to approve"),
+    body("habits.*.name")
+      .trim()
+      .notEmpty()
+      .withMessage("Each habit must have a name"),
+    body("habits.*.lifeAreaId")
+      .notEmpty()
+      .withMessage("Each habit must have a life area"),
+    body("habits.*.targetFrequency")
+      .optional()
+      .isInt({ min: 1, max: 7 })
+      .withMessage("Target frequency must be between 1 and 7"),
+    body("habits.*.durationMinutes")
+      .optional()
+      .isInt({ min: 1, max: 480 })
+      .withMessage("Duration must be between 1 and 480 minutes"),
+    body("habits.*.difficultyLevel")
+      .optional()
+      .isIn(["micro", "easy", "medium", "challenging"])
+      .withMessage("Invalid difficulty level"),
+  ],
+  validateRequest,
+  AIHabitController.approve,
 );
 
 // ─── Listing Routes ──────────────────────────────────────────────────────────

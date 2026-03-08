@@ -4,6 +4,7 @@ import 'providers/app_state.dart';
 import 'screens/onboarding/onboarding_flow.dart';
 import 'screens/main_navigation.dart';
 import 'screens/add_habit_screen.dart';
+import 'screens/ai_habits_screen.dart';
 import 'screens/auth/login_screen.dart';
 
 void main() {
@@ -36,6 +37,7 @@ class MyApp extends StatelessWidget {
         home: const AppRouter(),
         routes: {
           '/add-habit': (context) => const AddHabitScreen(),
+          '/ai-habits': (context) => const AIHabitsScreen(),
         },
       ),
     );

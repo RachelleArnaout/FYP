@@ -235,3 +235,42 @@ export interface ApiResponse<T = unknown> {
   message?: string;
   errors?: string[];
 }
+
+// ─── AI Habit Generation Types ───────────────────────────────────────────────
+
+export interface IAIGeneratedHabit {
+  name: string;
+  description: string;
+  lifeAreaName: string;
+  goalStatement: string;
+  valueAlignment: string;
+  targetFrequency: number;
+  durationMinutes: number;
+  difficultyLevel: DifficultyLevel;
+  isBuildingHabit: boolean;
+  reason: string;
+}
+
+export interface IAIGenerateHabitsInput {
+  focusAreas?: string[];
+  count?: number;
+}
+
+export interface IAIGenerateHabitsResponse {
+  habits: IAIGeneratedHabit[];
+  summary: string;
+}
+
+export interface IApproveAIHabitsInput {
+  habits: Array<{
+    name: string;
+    description: string;
+    lifeAreaId: string;
+    goalStatement: string;
+    valueAlignment: string;
+    targetFrequency: number;
+    durationMinutes: number;
+    difficultyLevel: DifficultyLevel;
+    isBuildingHabit: boolean;
+  }>;
+}

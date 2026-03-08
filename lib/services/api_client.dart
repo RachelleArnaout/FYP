@@ -4,8 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Conditional import for Platform
-import 'api_platform_stub.dart'
-    if (dart.library.io) 'api_platform_io.dart' as platform;
+import 'api_platform_stub.dart' if (dart.library.io) 'api_platform_io.dart'
+    as platform;
 
 class ApiException implements Exception {
   final int statusCode;
@@ -120,9 +120,7 @@ class ApiClient {
     throw ApiException(
       statusCode: response.statusCode,
       message: body['message'] ?? 'An error occurred',
-      errors: body['errors'] != null
-          ? List<String>.from(body['errors'])
-          : null,
+      errors: body['errors'] != null ? List<String>.from(body['errors']) : null,
     );
   }
 }
