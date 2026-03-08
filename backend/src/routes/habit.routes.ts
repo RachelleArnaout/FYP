@@ -72,6 +72,28 @@ router.post(
   AIHabitController.approve,
 );
 
+router.post(
+  "/ai/motivational",
+  [
+    body("overallConsistency")
+      .isFloat({ min: 0, max: 100 })
+      .withMessage("Consistency must be 0-100"),
+    body("completedToday")
+      .isInt({ min: 0 })
+      .withMessage("completedToday must be >= 0"),
+    body("totalToday").isInt({ min: 0 }).withMessage("totalToday must be >= 0"),
+    body("currentStreaks")
+      .optional()
+      .isArray()
+      .withMessage("currentStreaks must be an array"),
+    body("totalActiveHabits")
+      .isInt({ min: 0 })
+      .withMessage("totalActiveHabits must be >= 0"),
+  ],
+  validateRequest,
+  AIHabitController.getMotivationalMessage,
+);
+
 // ─── Listing Routes ──────────────────────────────────────────────────────────
 
 router.get("/", HabitController.getAll);

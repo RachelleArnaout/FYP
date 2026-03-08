@@ -23,6 +23,80 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
 
   bool _isSubmitting = false;
 
+  Widget _buildTimeBudgetIndicator(AppState appState) {
+    final dailyGoal = appState.userProfile.dailyFreeTime;
+    final currentlyAllocated = appState.totalHabitMinutesPerDay;
+    final afterAdding = currentlyAllocated + _durationMinutes;
+    final remaining = dailyGoal - afterAdding;
+    final ratio =
+        dailyGoal > 0 ? (afterAdding / dailyGoal).clamp(0.0, 1.0) : 0.0;
+    final isOver = afterAdding > dailyGoal;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isOver
+            ? Colors.orange.withOpacity(0.08)
+            : const Color(0xFF6366F1).withOpacity(0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isOver
+              ? Colors.orange.withOpacity(0.3)
+              : const Color(0xFF6366F1).withOpacity(0.15),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.schedule,
+                  size: 16,
+                  color: isOver ? Colors.orange : const Color(0xFF6366F1)),
+              const SizedBox(width: 6),
+              const Text('Daily Time Budget',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 8,
+              backgroundColor: Colors.grey[300],
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isOver ? Colors.orange : const Color(0xFF6366F1),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${currentlyAllocated} min used + ${_durationMinutes} min new',
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              Text(
+                isOver ? '${-remaining} min over' : '${remaining} min left',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isOver ? Colors.orange[700] : Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+          Text(
+            'Daily goal: $dailyGoal min',
+            style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,6 +142,8 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _buildTimeBudgetIndicator(appState),
+                  const SizedBox(height: 20),
                   TextFormField(
                     controller: _nameController,
                     decoration: const InputDecoration(
@@ -185,19 +261,49 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 12),
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'micro', label: Text('Micro')),
-                      ButtonSegment(value: 'easy', label: Text('Easy')),
-                      ButtonSegment(value: 'medium', label: Text('Medium')),
-                      ButtonSegment(value: 'challenging', label: Text('Hard')),
-                    ],
-                    selected: {_difficulty},
-                    onSelectionChanged: (Set<String> selected) {
-                      setState(() {
-                        _difficulty = selected.first;
-                      });
-                    },
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                          value: 'micro',
+                          label: SizedBox(
+                            width: 56,
+                            child: Text('Micro', textAlign: TextAlign.center),
+                          ),
+                        ),
+                        ButtonSegment(
+                          value: 'easy',
+                          label: SizedBox(
+                            width: 56,
+                            child: Text('Easy', textAlign: TextAlign.center),
+                          ),
+                        ),
+                        ButtonSegment(
+                          value: 'medium',
+                          label: SizedBox(
+                            width: 56,
+                            child: Text('Medium', textAlign: TextAlign.center),
+                          ),
+                        ),
+                        ButtonSegment(
+                          value: 'challenging',
+                          label: SizedBox(
+                            width: 56,
+                            child: Text('Hard', textAlign: TextAlign.center),
+                          ),
+                        ),
+                      ],
+                      selected: {_difficulty},
+                      onSelectionChanged: (Set<String> selected) {
+                        setState(() {
+                          _difficulty = selected.first;
+                        });
+                      },
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 32),
                   SizedBox(

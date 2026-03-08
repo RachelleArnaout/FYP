@@ -1,10 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
+import '../services/habit_service.dart';
 import 'package:intl/intl.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  AIMotivationalResponse? _motivationalMessage;
+  bool _isLoadingMotivation = false;
+  bool _motivationLoaded = false;
+
+  void _loadMotivationalMessage(AppState appState) {
+    if (_isLoadingMotivation || _motivationLoaded) return;
+    if (appState.activeHabits.isEmpty) return;
+
+    _isLoadingMotivation = true;
+
+    final today = DateTime.now();
+    final todayHabits = appState.activeHabits;
+    final completed = todayHabits.where((h) => h.isCompletedOn(today)).length;
+    final consistency = (appState.getOverallConsistency(7) * 100);
+    final streaks = todayHabits
+        .where((h) => h.currentStreak > 0)
+        .map((h) => {'name': h.name, 'streak': h.currentStreak})
+        .toList();
+
+    HabitService.getMotivationalMessage(
+      overallConsistency: consistency,
+      completedToday: completed,
+      totalToday: todayHabits.length,
+      currentStreaks: streaks,
+      totalActiveHabits: todayHabits.length,
+    ).then((response) {
+      if (mounted) {
+        setState(() {
+          _motivationalMessage = response;
+          _isLoadingMotivation = false;
+          _motivationLoaded = true;
+        });
+      }
+    }).catchError((e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingMotivation = false;
+          _motivationLoaded = true;
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,6 +61,11 @@ class HomeScreen extends StatelessWidget {
       builder: (context, appState, child) {
         final today = DateTime.now();
         final todayHabits = appState.activeHabits;
+
+        // Trigger AI message load once
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _loadMotivationalMessage(appState);
+        });
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -21,6 +75,10 @@ class HomeScreen extends StatelessWidget {
               _buildHeader(context, appState),
               const SizedBox(height: 24),
               _buildDailyProgress(todayHabits, today),
+              const SizedBox(height: 16),
+              _buildTimeAllocation(appState),
+              const SizedBox(height: 16),
+              _buildMotivationalCard(),
               const SizedBox(height: 24),
               _buildTodayHabits(context, appState, todayHabits, today),
               const SizedBox(height: 24),
@@ -122,6 +180,245 @@ class HomeScreen extends StatelessWidget {
                 color: Colors.white,
                 fontSize: 14,
               ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeAllocation(AppState appState) {
+    final dailyGoal = appState.userProfile.dailyFreeTime;
+    final allocated = appState.totalHabitMinutesPerDay;
+    final remaining = dailyGoal - allocated;
+    final ratio = dailyGoal > 0 ? (allocated / dailyGoal).clamp(0.0, 1.0) : 0.0;
+    final isOverAllocated = allocated > dailyGoal;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isOverAllocated
+            ? Colors.red.withOpacity(0.08)
+            : const Color(0xFF6366F1).withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isOverAllocated
+              ? Colors.red.withOpacity(0.3)
+              : const Color(0xFF6366F1).withOpacity(0.15),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.schedule,
+                size: 18,
+                color: isOverAllocated ? Colors.red : const Color(0xFF6366F1),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Daily Time Budget',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: isOverAllocated ? Colors.red[700] : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 10,
+              backgroundColor: Colors.grey[300],
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isOverAllocated ? Colors.red : const Color(0xFF6366F1),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${allocated} min allocated',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isOverAllocated ? Colors.red[700] : Colors.black87,
+                ),
+              ),
+              Text(
+                isOverAllocated
+                    ? '${-remaining} min over budget!'
+                    : '${remaining} min remaining',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isOverAllocated ? Colors.red[600] : Colors.grey[600],
+                  fontWeight:
+                      isOverAllocated ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Daily goal: $dailyGoal min · ${appState.activeHabits.length} active habit${appState.activeHabits.length == 1 ? '' : 's'}',
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMotivationalCard() {
+    if (_isLoadingMotivation) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.purple.withOpacity(0.08),
+              Colors.blue.withOpacity(0.08)
+            ],
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Getting your personalized insight...',
+                style: TextStyle(fontSize: 13, color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    if (_motivationalMessage == null) return const SizedBox.shrink();
+
+    final msg = _motivationalMessage!;
+    final isEncouragement = msg.type == 'encouragement';
+
+    final gradientColors = isEncouragement
+        ? [Colors.green.withOpacity(0.08), Colors.teal.withOpacity(0.08)]
+        : [Colors.purple.withOpacity(0.08), Colors.blue.withOpacity(0.08)];
+
+    final icon = isEncouragement
+        ? Icons.celebration
+        : msg.type == 'reminder'
+            ? Icons.notifications_active
+            : Icons.auto_awesome;
+
+    final iconColor = isEncouragement ? Colors.green : const Color(0xFF8B5CF6);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: gradientColors),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: iconColor.withOpacity(0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 20, color: iconColor),
+              const SizedBox(width: 8),
+              Text(
+                isEncouragement ? 'Keep it up!' : 'Daily Motivation',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: iconColor,
+                ),
+              ),
+              const Spacer(),
+              Icon(Icons.auto_awesome, size: 14, color: Colors.grey[400]),
+              const SizedBox(width: 4),
+              Text('AI',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            msg.message,
+            style: const TextStyle(fontSize: 14, height: 1.4),
+          ),
+          if (msg.quote != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('"',
+                      style: TextStyle(
+                          fontSize: 24,
+                          color: iconColor,
+                          fontWeight: FontWeight.bold,
+                          height: 0.8)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          msg.quote!,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                            height: 1.3,
+                          ),
+                        ),
+                        if (msg.quoteAuthor != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '— ${msg.quoteAuthor}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (msg.tip != null) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.lightbulb_outline,
+                    size: 16, color: Colors.orange[600]),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    msg.tip!,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  ),
+                ),
+              ],
             ),
           ],
         ],

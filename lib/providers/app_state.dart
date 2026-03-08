@@ -378,6 +378,18 @@ class AppState extends ChangeNotifier {
 
   // ─── Analytics Methods ─────────────────────────────────────────────────────
 
+  /// Get consistency for a single day (what fraction of active habits were completed).
+  double getDailyConsistency(DateTime date) {
+    final active = _habits.where((h) => h.isActive).toList();
+    if (active.isEmpty) return 0.0;
+
+    int completed = 0;
+    for (var habit in active) {
+      if (habit.isCompletedOn(date)) completed++;
+    }
+    return completed / active.length;
+  }
+
   Map<String, int> getLifeAreaCompletionCounts(int days) {
     final counts = <String, int>{};
     final now = DateTime.now();
@@ -411,6 +423,41 @@ class AppState extends ChangeNotifier {
     }
 
     return total / activeHabitsList.length;
+  }
+
+  /// Get per-life-area stats: completed, total possible, habit count.
+  Map<String, Map<String, int>> getLifeAreaStats(int days) {
+    final result = <String, Map<String, int>>{};
+    final now = DateTime.now();
+
+    for (var area in _lifeAreas) {
+      if (!area.isActive) continue;
+
+      final areaHabits =
+          _habits.where((h) => h.lifeAreaId == area.id && h.isActive).toList();
+      int completed = 0;
+      int total = areaHabits.length * days;
+
+      for (var habit in areaHabits) {
+        for (int i = 0; i < days; i++) {
+          final date = now.subtract(Duration(days: i));
+          if (habit.isCompletedOn(date)) completed++;
+        }
+      }
+
+      result[area.id] = {
+        'completed': completed,
+        'total': total,
+        'habitCount': areaHabits.length,
+      };
+    }
+
+    return result;
+  }
+
+  /// Total time allocated to active habits per day (in minutes).
+  int get totalHabitMinutesPerDay {
+    return activeHabits.fold(0, (sum, h) => sum + h.durationMinutes);
   }
 
   /// Refresh all data from the backend.

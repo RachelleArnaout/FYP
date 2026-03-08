@@ -128,6 +128,25 @@ class HabitService {
     final data = response['data'] as List<dynamic>;
     return data.map((e) => Habit.fromJson(e as Map<String, dynamic>)).toList();
   }
+
+  /// Generate a personalized AI motivational message based on progress.
+  static Future<AIMotivationalResponse> getMotivationalMessage({
+    required double overallConsistency,
+    required int completedToday,
+    required int totalToday,
+    required List<Map<String, dynamic>> currentStreaks,
+    required int totalActiveHabits,
+  }) async {
+    final response = await ApiClient.post('/habits/ai/motivational', body: {
+      'overallConsistency': overallConsistency,
+      'completedToday': completedToday,
+      'totalToday': totalToday,
+      'currentStreaks': currentStreaks,
+      'totalActiveHabits': totalActiveHabits,
+    });
+    final data = response['data'] as Map<String, dynamic>;
+    return AIMotivationalResponse.fromJson(data);
+  }
 }
 
 /// A single AI-generated habit suggestion.
@@ -203,6 +222,33 @@ class AIGeneratedHabitsResponse {
           .map((e) => AIGeneratedHabit.fromJson(e as Map<String, dynamic>))
           .toList(),
       summary: json['summary'] ?? '',
+    );
+  }
+}
+
+/// Response from the AI motivational message endpoint.
+class AIMotivationalResponse {
+  final String message;
+  final String type; // 'encouragement', 'motivation', 'reminder'
+  final String? quote;
+  final String? quoteAuthor;
+  final String? tip;
+
+  AIMotivationalResponse({
+    required this.message,
+    required this.type,
+    this.quote,
+    this.quoteAuthor,
+    this.tip,
+  });
+
+  factory AIMotivationalResponse.fromJson(Map<String, dynamic> json) {
+    return AIMotivationalResponse(
+      message: json['message'] ?? '',
+      type: json['type'] ?? 'motivation',
+      quote: json['quote'],
+      quoteAuthor: json['quoteAuthor'],
+      tip: json['tip'],
     );
   }
 }

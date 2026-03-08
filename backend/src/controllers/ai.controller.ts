@@ -97,4 +97,40 @@ export class AIHabitController {
       next(error);
     }
   }
+
+  /**
+   * POST /api/habits/ai/motivational
+   * Generate a personalized motivational message based on user progress.
+   */
+  static async getMotivationalMessage(
+    req: AuthenticatedRequest,
+    res: Response<ApiResponse>,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const {
+        overallConsistency,
+        completedToday,
+        totalToday,
+        currentStreaks,
+        totalActiveHabits,
+      } = req.body;
+
+      const result = await AIService.generateMotivationalMessage(req.userId!, {
+        overallConsistency: Number(overallConsistency) || 0,
+        completedToday: Number(completedToday) || 0,
+        totalToday: Number(totalToday) || 0,
+        currentStreaks: Array.isArray(currentStreaks) ? currentStreaks : [],
+        totalActiveHabits: Number(totalActiveHabits) || 0,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: "Motivational message generated.",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

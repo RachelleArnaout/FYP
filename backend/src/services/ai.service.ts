@@ -14,6 +14,14 @@ const openai = new OpenAI({
 
 console.log("AI Service initialized with model:", environment.llmModel);
 
+export interface IAIMotivationalResponse {
+  message: string;
+  type: "encouragement" | "motivation" | "reminder";
+  quote?: string;
+  quoteAuthor?: string;
+  tip?: string;
+}
+
 export class AIService {
   /**
    * Generate personalized habit suggestions using GPT-5-nano based on user profile.
@@ -236,5 +244,118 @@ Generate habits that are realistic given this person's schedule, energy, and lif
         isBuildingHabit: h.isBuildingHabit !== false,
         reason: String(h.reason || "").slice(0, 500),
       }));
+  }
+
+  /**
+   * Generate a personalized motivational message based on user progress.
+   */
+  static async generateMotivationalMessage(
+    userId: string,
+    progressData: {
+      overallConsistency: number; // 0-100
+      completedToday: number;
+      totalToday: number;
+      currentStreaks: { name: string; streak: number }[];
+      totalActiveHabits: number;
+    },
+  ): Promise<IAIMotivationalResponse> {
+    const [profile] = await Promise.all([UserProfile.findOne({ userId })]);
+
+    const isDoingWell = progressData.overallConsistency >= 60;
+    const userName = profile?.profession
+      ? `a ${profile.profession}`
+      : "the user";
+
+    const topStreaks = progressData.currentStreaks
+      .sort((a, b) => b.streak - a.streak)
+      .slice(0, 3)
+      .map((s) => `${s.name}: ${s.streak}-day streak`)
+      .join(", ");
+
+    const systemPrompt = `You are a warm, empathetic life coach embedded in a habit-tracking app. Your job is to craft a short, personalized motivational message for the user.
+
+RULES:
+- Keep the main message to 1-2 sentences, warm and personal
+- If the user is doing well (consistency >= 60%), celebrate their progress with genuine encouragement
+- If the user is struggling (consistency < 60%), be compassionate — offer a motivational quote from a famous person and a practical tip to get back on track
+- Never be preachy or condescending
+- Reference specific data (streaks, completion rate) when possible
+- Respond ONLY with valid JSON matching the schema below
+
+OUTPUT JSON SCHEMA:
+{
+  "message": "string (1-2 sentence personalized message)",
+  "type": "string (encouragement if doing well, motivation if needs a boost, reminder if hasn't started today)",
+  "quote": "string (optional, a real motivational quote — only include if user is struggling)",
+  "quoteAuthor": "string (optional, author of the quote)",
+  "tip": "string (optional, a practical 1-sentence tip — only include if user is struggling)"
+}`;
+
+    const userPrompt = `Generate a motivational message for this user:
+
+PROGRESS DATA:
+- Weekly consistency: ${progressData.overallConsistency}%
+- Today: ${progressData.completedToday} / ${progressData.totalToday} habits completed
+- Top streaks: ${topStreaks || "No active streaks yet"}
+- Total active habits: ${progressData.totalActiveHabits}
+- Doing well: ${isDoingWell ? "YES" : "NO"}
+- User values: ${profile?.topValues?.join(", ") || "Not specified"}
+- Motivation driver: ${profile?.motivationDriver || "achievement"}`;
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: environment.llmModel,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 1.0,
+        max_completion_tokens: 300,
+        response_format: { type: "json_object" },
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        return AIService.getFallbackMessage(isDoingWell);
+      }
+
+      const parsed = JSON.parse(content) as IAIMotivationalResponse;
+      return {
+        message: String(parsed.message || "").slice(0, 500),
+        type: ["encouragement", "motivation", "reminder"].includes(parsed.type)
+          ? parsed.type
+          : isDoingWell
+            ? "encouragement"
+            : "motivation",
+        quote: parsed.quote ? String(parsed.quote).slice(0, 300) : undefined,
+        quoteAuthor: parsed.quoteAuthor
+          ? String(parsed.quoteAuthor).slice(0, 100)
+          : undefined,
+        tip: parsed.tip ? String(parsed.tip).slice(0, 300) : undefined,
+      };
+    } catch (error: any) {
+      console.error("Error generating motivational message:", error);
+      return AIService.getFallbackMessage(isDoingWell);
+    }
+  }
+
+  private static getFallbackMessage(
+    isDoingWell: boolean,
+  ): IAIMotivationalResponse {
+    if (isDoingWell) {
+      return {
+        message:
+          "You're doing great! Keep up the momentum — consistency is the key to transformation.",
+        type: "encouragement",
+      };
+    }
+    return {
+      message:
+        "Every expert was once a beginner. One small step today builds the foundation for tomorrow.",
+      type: "motivation",
+      quote: "It does not matter how slowly you go as long as you do not stop.",
+      quoteAuthor: "Confucius",
+      tip: "Try completing just one small habit today to rebuild momentum.",
+    };
   }
 }
