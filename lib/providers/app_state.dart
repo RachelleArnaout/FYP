@@ -22,6 +22,11 @@ class AppState extends ChangeNotifier {
   bool _isInitialized = false;
   String? _error;
 
+  bool _isMongoObjectId(String value) {
+    final objectIdRegex = RegExp(r'^[a-fA-F0-9]{24}$');
+    return objectIdRegex.hasMatch(value);
+  }
+
   UserProfile get userProfile => _userProfile;
   List<LifeArea> get lifeAreas => _lifeAreas;
   List<LifeArea> get activeLifeAreas =>
@@ -228,6 +233,12 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     }
 
+    // Local fallback areas use non-ObjectId keys (e.g. "academic").
+    // Keep onboarding selection working locally in that case.
+    if (!_isMongoObjectId(id)) {
+      return;
+    }
+
     try {
       final updated = await LifeAreaService.toggleActive(id);
       if (index != -1) {
@@ -245,19 +256,29 @@ class AppState extends ChangeNotifier {
 
   /// Create default life areas on the backend for a new user during onboarding.
   Future<void> createDefaultLifeAreas() async {
+    if (_lifeAreas.isNotEmpty) {
+      return;
+    }
+
     try {
-      final defaults = LifeArea.getDefaultAreas();
-      final created = <LifeArea>[];
-      for (final area in defaults) {
-        final result = await LifeAreaService.create(area);
-        created.add(result);
+      final existing = await LifeAreaService.getAll();
+      if (existing.isNotEmpty) {
+        _lifeAreas = existing;
+        notifyListeners();
+        return;
       }
-      _lifeAreas = created;
-      notifyListeners();
     } catch (e) {
-      // If creation fails, use local defaults as fallback
-      _lifeAreas = LifeArea.getDefaultAreas();
-      notifyListeners();
+      // Recover from duplicates/races by reloading backend before local fallback.
+      try {
+        final existing = await LifeAreaService.getAll();
+        if (existing.isNotEmpty) {
+          _lifeAreas = existing;
+          notifyListeners();
+          return;
+        }
+      } catch (_) {
+        // Ignore and keep local fallback below.
+      }
     }
   }
 
