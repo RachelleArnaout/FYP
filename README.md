@@ -17,4 +17,19 @@ samples, guidance on mobile development, and a full API reference.
 
 - `flutter pub get`
 - `flutter run` or `flutter run -d chrome --web-experimental-hot-reload`
+- `brew services start mongodb/brew/mongodb-community@7.0`
+- `mongosh`
 
+## Run on iOS
+
+- Download and install Xcode from the App Store
+- Open Xcode and install additional components
+- Create a certificate for development
+- Open terminal and run:
+        - `brew install cocoapods`
+        - `flutter clean`
+        - `flutter pub get`
+        - `cd ios`
+        - `pod install`
+        - `cd ..`
+        - `flutter run`

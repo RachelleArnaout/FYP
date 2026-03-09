@@ -40,15 +40,23 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(height: 24),
               _buildSection(
                 'Core Values',
-                profile.topValues.isEmpty
-                    ? [const Text('Not set yet')]
-                    : profile.topValues
-                        .map((value) => Chip(
-                              label: Text(value),
-                              backgroundColor:
-                                  const Color(0xFF6366F1).withOpacity(0.1),
-                            ))
-                        .toList(),
+                [
+                  profile.topValues.isEmpty
+                      ? const Text('Not set yet')
+                      : Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: profile.topValues
+                              .map(
+                                (value) => Chip(
+                                  label: Text(value),
+                                  backgroundColor:
+                                      const Color(0xFF6366F1).withOpacity(0.1),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                ],
               ),
               const SizedBox(height: 24),
               if (profile.identityStatements.isNotEmpty) ...[
@@ -128,8 +136,8 @@ class ProfileScreen extends StatelessWidget {
                       context: context,
                       builder: (ctx) => AlertDialog(
                         title: const Text('Log Out'),
-                        content: const Text(
-                            'Are you sure you want to log out?'),
+                        content:
+                            const Text('Are you sure you want to log out?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.of(ctx).pop(),

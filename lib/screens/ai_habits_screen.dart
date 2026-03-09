@@ -41,6 +41,10 @@ class _AIHabitsScreenState extends State<AIHabitsScreen>
   }
 
   Future<void> _generate() async {
+    final appState = Provider.of<AppState>(context, listen: false);
+    final activeAreas = appState.activeLifeAreas;
+    final requestedCount = activeAreas.length > 5 ? activeAreas.length : 5;
+
     setState(() {
       _isGenerating = true;
       _error = null;
@@ -50,7 +54,10 @@ class _AIHabitsScreenState extends State<AIHabitsScreen>
     });
 
     try {
-      final result = await HabitService.generateAIHabits(count: 5);
+      final result = await HabitService.generateAIHabits(
+        count: requestedCount,
+        focusAreas: activeAreas.map((area) => area.name).toList(),
+      );
       setState(() {
         _response = result;
         // Pre-select all habits

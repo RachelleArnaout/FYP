@@ -31,9 +31,6 @@ export class AIService {
     focusAreas?: string[],
     count: number = 5,
   ): Promise<IAIGenerateHabitsResponse> {
-    // Clamp count to a safe range
-    const habitCount = Math.min(Math.max(count, 1), 10);
-
     // Fetch user data in parallel
     const [profile, lifeAreas, existingHabits] = await Promise.all([
       UserProfile.findOne({ userId }),
@@ -55,14 +52,39 @@ export class AIService {
       );
     }
 
+    const requestedAreaNames =
+      focusAreas?.map((a) => String(a).trim()).filter((a) => a.length > 0) ??
+      [];
+
+    const targetAreas =
+      requestedAreaNames.length > 0
+        ? lifeAreas.filter((a) => requestedAreaNames.includes(a.name))
+        : lifeAreas;
+
+    if (targetAreas.length === 0) {
+      throw new AppError(
+        "Selected focus areas are not active. Please choose active life areas.",
+        400,
+      );
+    }
+
+    const habitCount = Math.min(
+      Math.max(Math.max(count, targetAreas.length), 1),
+      10,
+    );
+    const areaNames = targetAreas.map((a) => a.name);
+    const areaQuotas = AIService.computeAreaQuotas(areaNames, habitCount);
+
     // Build structured input for the prompt
     const profileContext = AIService.buildProfileContext(profile);
     console.log("Profile context for AI:", profileContext);
-    const areasContext = AIService.buildLifeAreasContext(lifeAreas, focusAreas);
+    const areasContext = AIService.buildLifeAreasContext(targetAreas);
     console.log("Life areas context for AI:", areasContext);
     const existingContext =
       AIService.buildExistingHabitsContext(existingHabits);
     console.log("Existing habits context for AI:", existingContext);
+
+    const quotaContext = AIService.buildQuotaContext(areaQuotas);
 
     const systemPrompt = `You are an expert behavioral psychologist and life coach specializing in habit formation. Your role is to generate highly personalized, actionable daily habits based on a user's complete profile.
 
@@ -74,6 +96,7 @@ RULES:
 - Avoid suggesting habits the user already has
 - Consider the user's difficulty preference and structure preference
 - Each habit must map to one of the user's active life areas
+- Follow the life-area quota strictly (target distribution is provided by the user prompt)
 - Provide a brief reason explaining why each habit fits this user
 - Respond ONLY with valid JSON matching the exact schema below
 
@@ -102,40 +125,75 @@ ${profileContext}
 
 ${areasContext}
 
+${quotaContext}
+
 ${existingContext}
 
 Generate habits that are realistic given this person's schedule, energy, and lifestyle. Prioritize high-impact, low-friction habits that match their structure preference.`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: environment.llmModel,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 1.0,
-        max_completion_tokens: 1000,
-        response_format: { type: "json_object" },
-      });
-
-      console.log("Raw AI response:", response);
-      console.log("Raw AI response content:", response.choices[0]?.message);
-
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        throw new AppError("AI did not return a response.", 500);
-      }
-
-      const parsed = JSON.parse(content) as IAIGenerateHabitsResponse;
-
-      // Validate and sanitize the response
-      const validatedHabits = AIService.validateAndSanitize(
-        parsed.habits,
-        lifeAreas.map((a) => a.name),
+      const parsed = await AIService.generateHabitPayload(
+        systemPrompt,
+        userPrompt,
       );
 
+      const validatedHabits = AIService.validateAndSanitize(
+        parsed.habits,
+        areaNames,
+      );
+
+      let balanced = AIService.enforceQuotaDistribution(
+        validatedHabits,
+        areaQuotas,
+        habitCount,
+      );
+
+      const shortages = AIService.getQuotaShortages(balanced, areaQuotas);
+      if (shortages.size > 0) {
+        const missingCount = Array.from(shortages.values()).reduce(
+          (sum, value) => sum + value,
+          0,
+        );
+
+        const existingNames = new Set(
+          [...validatedHabits, ...balanced].map((h) => h.name.toLowerCase()),
+        );
+
+        const topUpPrompt = `Generate ${missingCount} additional personalized habits to fill missing life-area quotas.
+
+${profileContext}
+
+${areasContext}
+
+MISSING QUOTAS TO FILL (strict):
+${AIService.buildQuotaContext(shortages)}
+
+EXISTING GENERATED HABIT NAMES (do not repeat):
+${Array.from(existingNames).join("\n")}
+
+Return JSON in the same schema. Ensure each new habit is assigned to one of the missing quota life areas.`;
+
+        const topUpParsed = await AIService.generateHabitPayload(
+          systemPrompt,
+          topUpPrompt,
+        );
+
+        const topUpValidated = AIService.validateAndSanitize(
+          topUpParsed.habits,
+          areaNames,
+        );
+
+        balanced = AIService.enforceQuotaDistribution(
+          [...balanced, ...topUpValidated],
+          areaQuotas,
+          habitCount,
+        );
+      }
+
+      balanced = AIService.forceQuotaCoverage(balanced, areaQuotas);
+
       return {
-        habits: validatedHabits,
+        habits: balanced.slice(0, habitCount),
         summary:
           parsed.summary || "Here are your personalized habit suggestions.",
       };
@@ -179,15 +237,8 @@ Generate habits that are realistic given this person's schedule, energy, and lif
 - Life Phase: ${profile.currentLifePhase || "Not specified"}`;
   }
 
-  private static buildLifeAreasContext(
-    lifeAreas: any[],
-    focusAreas?: string[],
-  ): string {
-    const areas = focusAreas?.length
-      ? lifeAreas.filter((a) => focusAreas.includes(a.name))
-      : lifeAreas;
-
-    const areasList = areas
+  private static buildLifeAreasContext(lifeAreas: any[]): string {
+    const areasList = lifeAreas
       .map(
         (a) =>
           `- ${a.icon} ${a.name}: ${a.description || "No description"} (Priority: ${a.priority})`,
@@ -195,6 +246,13 @@ Generate habits that are realistic given this person's schedule, energy, and lif
       .join("\n");
 
     return `ACTIVE LIFE AREAS (generate habits for these):\n${areasList}`;
+  }
+
+  private static buildQuotaContext(quotas: Map<string, number>): string {
+    const quotaLines = Array.from(quotas.entries()).map(
+      ([areaName, quota]) => `- ${areaName}: ${quota}`,
+    );
+    return `LIFE AREA QUOTAS (number of habits required per area):\n${quotaLines.join("\n")}`;
   }
 
   private static buildExistingHabitsContext(habits: any[]): string {
@@ -244,6 +302,164 @@ Generate habits that are realistic given this person's schedule, energy, and lif
         isBuildingHabit: h.isBuildingHabit !== false,
         reason: String(h.reason || "").slice(0, 500),
       }));
+  }
+
+  private static computeAreaQuotas(
+    areaNames: string[],
+    totalCount: number,
+  ): Map<string, number> {
+    const quotas = new Map<string, number>();
+    if (areaNames.length === 0 || totalCount <= 0) return quotas;
+
+    const base = Math.floor(totalCount / areaNames.length);
+    const remainder = totalCount % areaNames.length;
+
+    areaNames.forEach((areaName, index) => {
+      quotas.set(areaName, base + (index < remainder ? 1 : 0));
+    });
+
+    return quotas;
+  }
+
+  private static enforceQuotaDistribution(
+    habits: IAIGeneratedHabit[],
+    quotas: Map<string, number>,
+    totalCount: number,
+  ): IAIGeneratedHabit[] {
+    const byArea = new Map<string, IAIGeneratedHabit[]>();
+    for (const areaName of quotas.keys()) {
+      byArea.set(areaName, []);
+    }
+
+    for (const habit of habits) {
+      const bucket = byArea.get(habit.lifeAreaName);
+      if (bucket) {
+        bucket.push(habit);
+      }
+    }
+
+    const selected: IAIGeneratedHabit[] = [];
+    const usedNames = new Set<string>();
+
+    for (const [areaName, quota] of quotas.entries()) {
+      const bucket = byArea.get(areaName) ?? [];
+      for (const habit of bucket) {
+        if (selected.length >= totalCount) break;
+        if (
+          selected.filter((h) => h.lifeAreaName === areaName).length >= quota
+        ) {
+          break;
+        }
+        const habitNameKey = habit.name.trim().toLowerCase();
+        if (usedNames.has(habitNameKey)) continue;
+        usedNames.add(habitNameKey);
+        selected.push(habit);
+      }
+    }
+
+    if (selected.length < totalCount) {
+      for (const habit of habits) {
+        if (selected.length >= totalCount) break;
+        const habitNameKey = habit.name.trim().toLowerCase();
+        if (usedNames.has(habitNameKey)) continue;
+        usedNames.add(habitNameKey);
+        selected.push(habit);
+      }
+    }
+
+    return selected;
+  }
+
+  private static getQuotaShortages(
+    habits: IAIGeneratedHabit[],
+    quotas: Map<string, number>,
+  ): Map<string, number> {
+    const counts = new Map<string, number>();
+    for (const habit of habits) {
+      counts.set(habit.lifeAreaName, (counts.get(habit.lifeAreaName) ?? 0) + 1);
+    }
+
+    const shortages = new Map<string, number>();
+    for (const [areaName, quota] of quotas.entries()) {
+      const missing = quota - (counts.get(areaName) ?? 0);
+      if (missing > 0) shortages.set(areaName, missing);
+    }
+    return shortages;
+  }
+
+  private static forceQuotaCoverage(
+    habits: IAIGeneratedHabit[],
+    quotas: Map<string, number>,
+  ): IAIGeneratedHabit[] {
+    if (habits.length === 0 || quotas.size === 0) return habits;
+
+    const adjusted = habits.map((h) => ({ ...h }));
+    const byAreaIndices = new Map<string, number[]>();
+
+    for (const areaName of quotas.keys()) {
+      byAreaIndices.set(areaName, []);
+    }
+
+    adjusted.forEach((habit, index) => {
+      const indices = byAreaIndices.get(habit.lifeAreaName);
+      if (indices) indices.push(index);
+    });
+
+    for (const [targetArea, targetQuota] of quotas.entries()) {
+      const targetIndices = byAreaIndices.get(targetArea) ?? [];
+
+      while (targetIndices.length < targetQuota) {
+        let donorArea: string | null = null;
+
+        for (const [areaName, quota] of quotas.entries()) {
+          const donorIndices = byAreaIndices.get(areaName) ?? [];
+          if (areaName !== targetArea && donorIndices.length > quota) {
+            donorArea = areaName;
+            break;
+          }
+        }
+
+        if (!donorArea) break;
+
+        const donorIndices = byAreaIndices.get(donorArea)!;
+        const movedIndex = donorIndices.pop();
+        if (movedIndex == null) break;
+
+        adjusted[movedIndex] = {
+          ...adjusted[movedIndex],
+          lifeAreaName: targetArea,
+        };
+        targetIndices.push(movedIndex);
+      }
+    }
+
+    return adjusted;
+  }
+
+  private static async generateHabitPayload(
+    systemPrompt: string,
+    userPrompt: string,
+  ): Promise<IAIGenerateHabitsResponse> {
+    const response = await openai.chat.completions.create({
+      model: environment.llmModel,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 1.0,
+      max_completion_tokens: 1000,
+      response_format: { type: "json_object" },
+    });
+
+    console.log("Raw AI response:", response);
+    console.log("Raw AI response content:", response.choices[0]?.message);
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new AppError("AI did not return a response.", 500);
+    }
+
+    return JSON.parse(content) as IAIGenerateHabitsResponse;
   }
 
   /**
