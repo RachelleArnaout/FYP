@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
+import '../main_navigation.dart';
+import '../onboarding/onboarding_flow.dart';
 import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -47,12 +49,26 @@ class _SignupScreenState extends State<SignupScreen> {
 
     if (!mounted) return;
 
+    if (result) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => appState.isOnboarded
+              ? const MainNavigation()
+              : const OnboardingFlow(),
+        ),
+        (route) => false,
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = false;
-      if (!result) {
-        _errorMessage =
-            appState.error ?? 'An account with this email already exists';
-      }
+      _errorMessage =
+          appState.error ?? 'An account with this email already exists';
     });
   }
 

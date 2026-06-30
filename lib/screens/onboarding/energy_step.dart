@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
+import '../main_navigation.dart';
 
 class EnergyStep extends StatefulWidget {
   const EnergyStep({super.key});
@@ -149,8 +150,22 @@ class _EnergyStepState extends State<EnergyStep> {
                     profile.dailyFreeTime = _dailyFreeTime.round();
                     profile.stressBaseline = _stressLevel;
                     await appState.updateUserProfile(profile);
-                    if (context.mounted) {
-                      await appState.completeOnboarding();
+                    if (!context.mounted) return;
+
+                    final completed = await appState.completeOnboarding();
+                    if (!context.mounted) return;
+
+                    if (completed) {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) => const MainNavigation(),
+                        ),
+                        (route) => false,
+                      );
+                    } else if (appState.error != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(appState.error!)),
+                      );
                     }
                   },
                   style: ElevatedButton.styleFrom(

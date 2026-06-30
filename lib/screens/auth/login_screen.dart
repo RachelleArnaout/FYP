@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
+import '../main_navigation.dart';
+import '../onboarding/onboarding_flow.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -41,11 +43,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
 
+    if (success) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => appState.isOnboarded
+              ? const MainNavigation()
+              : const OnboardingFlow(),
+        ),
+        (route) => false,
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = false;
-      if (!success) {
-        _errorMessage = appState.error ?? 'Invalid email or password';
-      }
+      _errorMessage = appState.error ?? 'Invalid email or password';
     });
   }
 

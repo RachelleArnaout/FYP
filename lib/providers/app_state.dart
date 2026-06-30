@@ -102,6 +102,21 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setAuthState({
+    required bool isLoggedIn,
+    required bool isOnboarded,
+    String? userId,
+    String? userName,
+    String? userEmail,
+  }) {
+    _isLoggedIn = isLoggedIn;
+    _isOnboarded = isOnboarded;
+    _userId = userId;
+    _userName = userName ?? _userName;
+    _userEmail = userEmail ?? _userEmail;
+    notifyListeners();
+  }
+
   // ─── Auth Methods ──────────────────────────────────────────────────────────
 
   Future<bool> signup(String name, String email, String password) async {
@@ -116,11 +131,13 @@ class AppState extends ChangeNotifier {
         password: password,
       );
       final user = data['user'] as Map<String, dynamic>;
-      _isLoggedIn = true;
-      _userId = user['id'];
-      _userName = user['name'] ?? name;
-      _userEmail = user['email'] ?? email;
-      _isOnboarded = user['isOnboarded'] ?? false;
+      setAuthState(
+        isLoggedIn: true,
+        isOnboarded: user['isOnboarded'] ?? false,
+        userId: user['id'],
+        userName: user['name'] ?? name,
+        userEmail: user['email'] ?? email,
+      );
       _lifeAreas = [];
       _habits = [];
       _userProfile = UserProfile();
@@ -148,11 +165,13 @@ class AppState extends ChangeNotifier {
     try {
       final data = await AuthService.login(email: email, password: password);
       final user = data['user'] as Map<String, dynamic>;
-      _isLoggedIn = true;
-      _userId = user['id'];
-      _userName = user['name'] ?? '';
-      _userEmail = user['email'] ?? email;
-      _isOnboarded = user['isOnboarded'] ?? false;
+      setAuthState(
+        isLoggedIn: true,
+        isOnboarded: user['isOnboarded'] ?? false,
+        userId: user['id'],
+        userName: user['name'] ?? '',
+        userEmail: user['email'] ?? email,
+      );
 
       if (_isOnboarded) {
         await _loadOnboardedData();
@@ -176,16 +195,17 @@ class AppState extends ChangeNotifier {
 
   Future<void> logout() async {
     await AuthService.logout();
-    _isLoggedIn = false;
-    _isOnboarded = false;
-    _userId = null;
-    _userName = '';
-    _userEmail = '';
     _userProfile = UserProfile();
     _lifeAreas = [];
     _habits = [];
     _currentOnboardingStep = 0;
-    notifyListeners();
+    setAuthState(
+      isLoggedIn: false,
+      isOnboarded: false,
+      userId: null,
+      userName: '',
+      userEmail: '',
+    );
   }
 
   // ─── Profile Methods ───────────────────────────────────────────────────────
@@ -366,17 +386,20 @@ class AppState extends ChangeNotifier {
 
   // ─── Onboarding Methods ────────────────────────────────────────────────────
 
-  Future<void> completeOnboarding() async {
+  Future<bool> completeOnboarding() async {
     try {
       await AuthService.completeOnboarding();
       _isOnboarded = true;
       notifyListeners();
+      return true;
     } on ApiException catch (e) {
       _error = e.message;
       notifyListeners();
+      return false;
     } catch (e) {
       _error = 'Failed to complete onboarding. Please try again.';
       notifyListeners();
+      return false;
     }
   }
 

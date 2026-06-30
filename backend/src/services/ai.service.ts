@@ -199,6 +199,29 @@ Return JSON in the same schema. Ensure each new habit is assigned to one of the 
       };
     } catch (error: any) {
       console.error("Error during AI habit generation:", error);
+      if (
+        error instanceof AppError &&
+        /(truncated|did not return a response)/i.test(error.message)
+      ) {
+        console.warn(
+          "AI returned no visible JSON content. Using deterministic fallback habit generation.",
+        );
+
+        const fallbackHabits = AIService.generateFallbackHabits(
+          profile,
+          targetAreas,
+          existingHabits,
+          areaQuotas,
+          habitCount,
+        );
+
+        return {
+          habits: fallbackHabits,
+          summary:
+            "Generated a reliable starter plan while the AI response was unavailable.",
+        };
+      }
+
       if (error instanceof AppError) throw error;
       if (error.status === 401) {
         throw new AppError(
@@ -440,26 +463,134 @@ Return JSON in the same schema. Ensure each new habit is assigned to one of the 
     systemPrompt: string,
     userPrompt: string,
   ): Promise<IAIGenerateHabitsResponse> {
-    const response = await openai.chat.completions.create({
+    const requestOptions: any = {
       model: environment.llmModel,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      temperature: 1.0,
-      max_completion_tokens: 1000,
+      max_completion_tokens: 16000,
       response_format: { type: "json_object" },
-    });
+    };
+
+    // GPT-5 reasoning models spend hidden tokens on reasoning before output.
+    // Minimal effort reserves budget for the visible JSON response.
+    if (environment.llmModel.startsWith("gpt-5")) {
+      requestOptions.reasoning_effort = "minimal";
+    }
+
+    const response = await openai.chat.completions.create(requestOptions);
 
     console.log("Raw AI response:", response);
     console.log("Raw AI response content:", response.choices[0]?.message);
 
-    const content = response.choices[0]?.message?.content;
+    const content = AIService.extractAssistantContent(
+      response.choices[0]?.message,
+    );
     if (!content) {
       throw new AppError("AI did not return a response.", 500);
     }
 
-    return JSON.parse(content) as IAIGenerateHabitsResponse;
+    return AIService.parseJsonResponse(content);
+  }
+
+  private static extractAssistantContent(message: any): string {
+    const content = message?.content;
+
+    if (typeof content === "string") {
+      return content.trim();
+    }
+
+    if (Array.isArray(content)) {
+      const text = content
+        .map((part: any) => {
+          if (typeof part === "string") return part;
+          if (typeof part?.text === "string") return part.text;
+          return "";
+        })
+        .join("")
+        .trim();
+
+      return text;
+    }
+
+    return "";
+  }
+
+  private static parseJsonResponse(content: string): IAIGenerateHabitsResponse {
+    const cleaned = content
+      .trim()
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/, "")
+      .trim();
+
+    return JSON.parse(cleaned) as IAIGenerateHabitsResponse;
+  }
+
+  private static generateFallbackHabits(
+    profile: any,
+    targetAreas: any[],
+    existingHabits: any[],
+    areaQuotas: Map<string, number>,
+    habitCount: number,
+  ): IAIGeneratedHabit[] {
+    const existingNames = new Set(
+      (existingHabits ?? []).map((h: any) =>
+        String(h.name || "").toLowerCase(),
+      ),
+    );
+
+    const freeTime = Math.max(Number(profile?.dailyFreeTime) || 30, 10);
+    const durationMinutes = Math.min(
+      Math.max(Math.round(freeTime / 3), 10),
+      25,
+    );
+    const valueAlignment = String(
+      profile?.topValues?.[0] || profile?.motivationDriver || "Growth",
+    ).slice(0, 200);
+    const difficultyLevel: DifficultyLevel =
+      durationMinutes <= 12 ? DifficultyLevel.Micro : DifficultyLevel.Easy;
+
+    const templates = [
+      "10-Minute Deep Work Sprint",
+      "Focused Skill Practice",
+      "Quick Reflection and Plan",
+      "Micro Learning Session",
+      "Connection Check-In",
+      "Energy Reset Walk",
+    ];
+
+    const habits: IAIGeneratedHabit[] = [];
+
+    for (const [areaName, quota] of areaQuotas.entries()) {
+      for (let i = 0; i < quota; i++) {
+        let name = `${templates[(habits.length + i) % templates.length]} - ${areaName}`;
+        let suffix = 2;
+
+        while (existingNames.has(name.toLowerCase())) {
+          name = `${name} ${suffix}`;
+          suffix += 1;
+        }
+
+        existingNames.add(name.toLowerCase());
+
+        habits.push({
+          name: name.slice(0, 60),
+          description: `Spend ${durationMinutes} minutes on a concrete ${areaName.toLowerCase()} action that moves one task forward.`,
+          lifeAreaName: areaName,
+          goalStatement: `Build consistent momentum in ${areaName.toLowerCase()} with low-friction daily action.`,
+          valueAlignment,
+          targetFrequency: 5,
+          durationMinutes,
+          difficultyLevel,
+          isBuildingHabit: true,
+          reason: `Fits your ${profile?.energyPattern || "daily"} rhythm and available time while reinforcing disciplined progress.`,
+        });
+      }
+    }
+
+    return habits.slice(0, habitCount);
   }
 
   /**
