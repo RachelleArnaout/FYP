@@ -91,20 +91,35 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(height: 24),
               _buildSection(
                 'Active Life Areas',
-                appState.activeLifeAreas
-                    .map((area) => ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Text(area.icon,
-                              style: const TextStyle(fontSize: 24)),
-                          title: Text(area.name),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () {
-                              appState.toggleLifeArea(area.id);
-                            },
-                          ),
-                        ))
-                    .toList(),
+                [
+                  if (appState.activeLifeAreas.isEmpty)
+                    const Text('No active life areas.'),
+                  ...appState.activeLifeAreas
+                      .map((area) => ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Text(area.icon,
+                                style: const TextStyle(fontSize: 24)),
+                            title: Text(area.name),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                appState.toggleLifeArea(area.id);
+                              },
+                            ),
+                          ))
+                      .toList(),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        _showManageLifeAreasDialog(context, appState);
+                      },
+                      icon: const Icon(Icons.manage_accounts),
+                      label: const Text('Manage Life Areas'),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 32),
               SizedBox(
@@ -206,6 +221,58 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showManageLifeAreasDialog(BuildContext context, AppState appState) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Manage Life Areas'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                final areas = appState.lifeAreas;
+                return areas.isEmpty
+                    ? const Text('No life areas found.')
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: areas.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final area = areas[index];
+                          return CheckboxListTile(
+                            value: area.isActive,
+                            onChanged: (_) {
+                              appState.toggleLifeArea(area.id);
+                              setState(() {});
+                            },
+                            title: Row(
+                              children: [
+                                Text(area.icon,
+                                    style: const TextStyle(fontSize: 22)),
+                                const SizedBox(width: 10),
+                                Expanded(child: Text(area.name)),
+                              ],
+                            ),
+                            subtitle: Text(area.description),
+                            activeColor: const Color(0xFF6366F1),
+                          );
+                        },
+                      );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Done'),
+            ),
+          ],
+        );
+      },
     );
   }
 

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../models/habit.dart';
+import '../models/life_area.dart';
 
 class AddHabitScreen extends StatefulWidget {
-  const AddHabitScreen({super.key});
+  final Habit? habit;
+  const AddHabitScreen({super.key, this.habit});
 
   @override
   State<AddHabitScreen> createState() => _AddHabitScreenState();
@@ -22,6 +24,22 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
   String _difficulty = 'easy';
 
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final habit = widget.habit;
+    if (habit != null) {
+      _nameController.text = habit.name;
+      _descriptionController.text = habit.description;
+      _goalController.text = habit.goalStatement;
+      _selectedLifeAreaId = habit.lifeAreaId;
+      _selectedValue =
+          habit.valueAlignment.isNotEmpty ? habit.valueAlignment : null;
+      _durationMinutes = habit.durationMinutes;
+      _difficulty = habit.difficultyLevel;
+    }
+  }
 
   Widget _buildTimeBudgetIndicator(AppState appState) {
     final dailyGoal = appState.userProfile.dailyFreeTime;
@@ -101,15 +119,30 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add New Habit'),
+        title: Text(widget.habit != null ? 'Edit Habit' : 'Add New Habit'),
         backgroundColor: const Color(0xFF6366F1),
         foregroundColor: Colors.white,
       ),
       body: Consumer<AppState>(
         builder: (context, appState, child) {
-          final activeAreas = appState.activeLifeAreas;
+          final availableAreas = <LifeArea>[...appState.activeLifeAreas];
+          if (widget.habit != null) {
+            final currentArea = appState.lifeAreas
+                .where((area) => area.id == widget.habit!.lifeAreaId)
+                .toList();
+            if (currentArea.isNotEmpty &&
+                !availableAreas
+                    .any((area) => area.id == currentArea.first.id)) {
+              availableAreas.add(currentArea.first);
+            }
+          }
 
-          if (activeAreas.isEmpty) {
+          final validSelectedValue =
+              appState.userProfile.topValues.contains(_selectedValue)
+                  ? _selectedValue
+                  : null;
+
+          if (availableAreas.isEmpty) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
@@ -165,7 +198,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                       labelText: 'Life Area',
                       border: OutlineInputBorder(),
                     ),
-                    items: activeAreas.map((area) {
+                    items: availableAreas.map((area) {
                       return DropdownMenuItem(
                         value: area.id,
                         child: Row(
@@ -202,7 +235,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                   const SizedBox(height: 20),
                   if (appState.userProfile.topValues.isNotEmpty) ...[
                     DropdownButtonFormField<String>(
-                      initialValue: _selectedValue,
+                      initialValue: validSelectedValue,
                       decoration: const InputDecoration(
                         labelText: 'Align with Value (Optional)',
                         border: OutlineInputBorder(),
@@ -316,25 +349,38 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                               if (_formKey.currentState!.validate()) {
                                 setState(() => _isSubmitting = true);
 
+                                final existingHabit = widget.habit;
                                 final habit = Habit(
-                                  id: '', // Will be assigned by the backend
+                                  id: existingHabit?.id ?? '',
                                   name: _nameController.text,
                                   description: _descriptionController.text,
                                   lifeAreaId: _selectedLifeAreaId!,
                                   goalStatement: _goalController.text,
                                   valueAlignment: _selectedValue ?? '',
+                                  targetFrequency:
+                                      existingHabit?.targetFrequency ?? 7,
                                   durationMinutes: _durationMinutes,
                                   difficultyLevel: _difficulty,
+                                  isActive: existingHabit?.isActive ?? true,
+                                  reminderTime: existingHabit?.reminderTime,
+                                  isBuildingHabit:
+                                      existingHabit?.isBuildingHabit ?? true,
                                 );
 
                                 try {
-                                  await appState.addHabit(habit);
+                                  if (existingHabit != null) {
+                                    await appState.updateHabit(habit);
+                                  } else {
+                                    await appState.addHabit(habit);
+                                  }
+
                                   if (context.mounted) {
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content:
-                                            Text('Habit added successfully!'),
+                                      SnackBar(
+                                        content: Text(existingHabit != null
+                                            ? 'Habit updated successfully!'
+                                            : 'Habit added successfully!'),
                                         backgroundColor: Colors.green,
                                       ),
                                     );
@@ -345,7 +391,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                            'Failed to add habit: ${e.toString()}'),
+                                            'Failed to save habit: ${e.toString()}'),
                                         backgroundColor: Colors.red,
                                       ),
                                     );
@@ -360,9 +406,9 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Create Habit',
-                        style: TextStyle(
+                      child: Text(
+                        widget.habit != null ? 'Update Habit' : 'Create Habit',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),

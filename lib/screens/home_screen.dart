@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../services/habit_service.dart';
+import 'add_habit_screen.dart';
 import 'package:intl/intl.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -563,6 +564,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert),
                       onSelected: (value) async {
+                        if (value == 'edit') {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AddHabitScreen(habit: habit),
+                            ),
+                          );
+                          return;
+                        }
+
                         if (value != 'delete') return;
 
                         final confirmed = await showDialog<bool>(
@@ -575,11 +585,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   actions: [
                                     TextButton(
-                                      onPressed: () => Navigator.of(context).pop(false),
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(false),
                                       child: const Text('Cancel'),
                                     ),
                                     TextButton(
-                                      onPressed: () => Navigator.of(context).pop(true),
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(true),
                                       child: const Text('Delete'),
                                     ),
                                   ],
@@ -602,12 +614,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (!mounted) return;
                           messenger.showSnackBar(
                             const SnackBar(
-                              content: Text('Unable to delete habit. Please try again.'),
+                              content: Text(
+                                  'Unable to delete habit. Please try again.'),
                             ),
                           );
                         }
                       },
                       itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: ListTile(
+                            leading: Icon(Icons.edit_outlined),
+                            title: Text('Edit'),
+                          ),
+                        ),
                         const PopupMenuItem(
                           value: 'delete',
                           child: ListTile(
