@@ -345,6 +345,7 @@ class AppState extends ChangeNotifier {
         _habits.insert(index, backup);
         notifyListeners();
       }
+      rethrow;
     }
   }
 

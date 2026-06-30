@@ -560,6 +560,63 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ],
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (value) async {
+                        if (value != 'delete') return;
+
+                        final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (context) {
+                                return AlertDialog(
+                                  title: const Text('Delete Habit'),
+                                  content: const Text(
+                                    'Are you sure you want to delete this habit? This action cannot be undone.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(context).pop(false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.of(context).pop(true),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ) ??
+                            false;
+
+                        if (!confirmed) return;
+
+                        final messenger = ScaffoldMessenger.of(context);
+
+                        try {
+                          await appState.deleteHabit(habit.id);
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('Habit deleted.')),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Unable to delete habit. Please try again.'),
+                            ),
+                          );
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: ListTile(
+                            leading: Icon(Icons.delete_outline),
+                            title: Text('Delete'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
