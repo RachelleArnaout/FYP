@@ -48,7 +48,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
     for (int i = days - 1; i >= 0; i--) {
       final date = DateTime.now().subtract(Duration(days: i));
-      final consistency = appState.getDailyConsistency(date) * 100;
+      final consistency = (appState.getDailyConsistency(date) * 100)
+          .clamp(0.0, 100.0)
+          .toDouble();
       data.add(FlSpot((days - 1 - i).toDouble(), consistency));
     }
 
@@ -79,7 +81,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       _isWeekly = selected.first;
                     });
                   },
-                  style: ButtonStyle(
+                  style: const ButtonStyle(
                     visualDensity: VisualDensity.compact,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -162,16 +164,18 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   maxX: (days - 1).toDouble(),
                   minY: 0,
                   maxY: 100,
+                  clipData: const FlClipData.all(),
                   lineBarsData: [
                     LineChartBarData(
                       spots: data,
                       isCurved: true,
+                      preventCurveOverShooting: true,
                       color: const Color(0xFF6366F1),
                       barWidth: 2,
                       dotData: FlDotData(show: _isWeekly),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: const Color(0xFF6366F1).withOpacity(0.1),
+                        color: const Color(0x1A6366F1),
                       ),
                     ),
                   ],
@@ -190,33 +194,52 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final days = _isWeekly ? 7 : 30;
     final overall = (appState.getOverallConsistency(days) * 100).round();
     final label = _isWeekly ? 'this week' : 'this month';
+    final isHigh = overall >= 70;
+    final isMedium = overall >= 40;
+    final statusText = isHigh
+        ? 'Excellent consistency'
+        : isMedium
+            ? 'Moderate consistency'
+            : 'Needs improvement';
+
+    final statusColor = isHigh
+        ? Colors.green
+        : isMedium
+            ? Colors.orange
+            : Colors.red;
+
+    final statusIcon = isHigh
+        ? Icons.trending_up
+        : isMedium
+            ? Icons.trending_flat
+            : Icons.trending_down;
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          overall >= 70
-              ? Icons.trending_up
-              : overall >= 40
-                  ? Icons.trending_flat
-                  : Icons.trending_down,
-          color: overall >= 70
-              ? Colors.green
-              : overall >= 40
-                  ? Colors.orange
-                  : Colors.red,
-          size: 20,
-        ),
+        Icon(statusIcon, color: statusColor, size: 20),
         const SizedBox(width: 8),
-        Text(
-          '$overall% average consistency $label',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: overall >= 70
-                ? Colors.green[700]
-                : overall >= 40
-                    ? Colors.orange[700]
-                    : Colors.red[700],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$overall% average consistency $label',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: statusColor.shade700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                statusText,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: statusColor.shade700,
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -361,7 +384,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
               return ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
-                  backgroundColor: const Color(0xFF6366F1).withOpacity(0.1),
+                  backgroundColor: const Color(0x1A6366F1),
                   child: Text(
                     '${habit.currentStreak}',
                     style: const TextStyle(
